@@ -141,6 +141,10 @@ _C.DEBUG.SAVE_HEATMAPS_GT = False
 _C.DEBUG.SAVE_HEATMAPS_PRED = False
 
 
+# from .default import _C as cfg
+# 上面就是初始化了 cfg 
+# 下面由train.py调用gn 根据args更新cfg 
+
 def update_config(cfg, args):
     cfg.defrost()
     cfg.merge_from_file(args.cfg)

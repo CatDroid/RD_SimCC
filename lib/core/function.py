@@ -32,6 +32,7 @@ from core.loss import JointsMSELoss, NMTCritierion
 
 logger = logging.getLogger(__name__)
 
+# sa_simdr表征方式的 训练 
 def train_sa_simdr(config, train_loader, model, criterion, optimizer, epoch,
           output_dir, tb_log_dir, writer_dict):
     batch_time = AverageMeter()
@@ -55,7 +56,8 @@ def train_sa_simdr(config, train_loader, model, criterion, optimizer, epoch,
         
         target_weight = target_weight.cuda(non_blocking=True).float()
 
-
+        # target_x, target_y 是 [B, K , W*split]  [B, K, H*split]
+        # 归一化的高斯分布 
         loss = criterion(output_x, output_y, target_x, target_y, target_weight)
 
         # compute gradient and do update step
@@ -123,18 +125,22 @@ def validate_sa_simdr(config, val_loader, val_dataset, model, criterion, output_
                 # feature is not aligned, shift flipped heatmap for higher accuracy
                 if config.TEST.SHIFT_HEATMAP:
                     output_x_flipped[:, :, 0:-1] = \
-                        output_x_flipped.clone()[:, :, 1:]                                                         
+                        output_x_flipped.clone()[:, :, 1:]   
+
+                # 翻转一下求平均                                                       
                 output_x = F.softmax((output_x+output_x_flipped)*0.5,dim=2)
                 output_y = F.softmax((output_y+output_y_flipped)*0.5,dim=2)
             else:
                 output_x = F.softmax(output_x,dim=2)
                 output_y = F.softmax(output_y,dim=2)                                
 
+            # 上面predict的输出 都做了softmax
 
             target_x = target_x.cuda(non_blocking=True)
             target_y = target_y.cuda(non_blocking=True)
             target_weight = target_weight.cuda(non_blocking=True).float()
 
+            # 计算测试集上的loss 
             loss = criterion(output_x, output_y, target_x, target_y, target_weight)
 
             num_images = input.size(0)
@@ -149,6 +155,8 @@ def validate_sa_simdr(config, val_loader, val_dataset, model, criterion, output_
             s = meta['scale'].numpy()
             score = meta['score'].numpy()
 
+            # 直接用max 获取 x和y坐标 的位置 (还没有除以2) 
+            # [B,K,1]
             max_val_x, preds_x = output_x.max(2,keepdim=True)
             max_val_y, preds_y = output_y.max(2,keepdim=True)
             
@@ -156,12 +164,16 @@ def validate_sa_simdr(config, val_loader, val_dataset, model, criterion, output_
             max_val_x[mask] = max_val_y[mask]
             maxvals = max_val_x.cpu().numpy()
 
+            # output = [B, K, 2]
             output = torch.ones([input.size(0),preds_x.size(1),2])
+            # torch.true_divide 就是除法操作 精确除法 即使整数也变成浮点数计算 
+            # [B,K,1] / split -> squeeze -> [B,K]
             output[:,:,0] = torch.squeeze(torch.true_divide(preds_x, config.MODEL.SIMDR_SPLIT_RATIO))
             output[:,:,1] = torch.squeeze(torch.true_divide(preds_y, config.MODEL.SIMDR_SPLIT_RATIO))
 
             output = output.cpu().numpy()
             preds = output.copy()
+            # 转换到输入空间的大小(而不是heatmap大小)
             # Transform back
             for i in range(output.shape[0]):
                 preds[i] = transform_preds(
@@ -193,6 +205,7 @@ def validate_sa_simdr(config, val_loader, val_dataset, model, criterion, output_
                 save_debug_images(config, input, meta, None, preds, output,
                                   prefix)
 
+        # 测试集 本来的评估方法?
         name_values, perf_indicator = val_dataset.evaluate(
             config, all_preds, output_dir, all_boxes, image_path,
             filenames, imgnums

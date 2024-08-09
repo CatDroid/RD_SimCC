@@ -102,6 +102,9 @@ def oks_nms(kpts_db, thresh, sigmas=None, in_vis_thre=None):
     :param kpts_db
     :param thresh: retain overlap < thresh
     :return: indexes to keep
+
+    基于对象关键点相似度(Object Keypoint Similarity, OKS)的非极大值抑制(Non-Maximum Suppression, NMS)算法
+    
     """
     if len(kpts_db) == 0:
         return []

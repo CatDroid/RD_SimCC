@@ -23,26 +23,40 @@ class KLDiscretLoss(nn.Module):
     def __init__(self):
         super(KLDiscretLoss, self).__init__()
         self.LogSoftmax = nn.LogSoftmax(dim=1) #[B,LOGITS]
+        # 不做规约
         self.criterion_ = nn.KLDivLoss(reduction='none')
  
  
     def criterion(self, dec_outs, labels):
+        # 只有predict输出 做了 softmax + log 
+        # labels 不做softmax 并且是 KLDivLoss 内部对target做log的 (1d-heatmap怎么保证不是0? 导致log0=-inf)
         scores = self.LogSoftmax(dec_outs)
+        # [B, W or H]
+        # 均值到 一个关键点x/y向量上?? 为什么不是求和 ? 是把每个bin作为单独的分类?
+        # label不做softmax 本来就是正态分布 或者是 softlabel(几乎加起来都是1)
         loss = torch.mean(self.criterion_(scores, labels), dim=1) 
+        # [B, ]
         return loss
 
     def forward(self, output_x, output_y, target_x, target_y, target_weight):
+        # output_x = [B, K, H or W]
         num_joints = output_x.size(1)
         loss = 0
 
         for idx in range(num_joints):
+            # 切片操作 可以不完整写全部维度
+            # [B, K, H or W]  ->  [B, H or W]    squeeze()没有作用??
             coord_x_pred = output_x[:,idx].squeeze()
             coord_y_pred = output_y[:,idx].squeeze()
             coord_x_gt = target_x[:,idx].squeeze()
             coord_y_gt = target_y[:,idx].squeeze()
+            # [B, K, H] -> [B, H]
             weight = target_weight[:,idx].squeeze()
+            # weight之后， 均值到一个图片 这个关键点 的 平均kl
             loss += (self.criterion(coord_x_pred,coord_x_gt).mul(weight).mean()) 
             loss += (self.criterion(coord_y_pred,coord_y_gt).mul(weight).mean())
+            
+        # 再均值到每个关键点 (平均一个图片上一个关键点的一个bin的kl散度)
         return loss / num_joints 
 
 class NMTNORMCritierion(nn.Module):

@@ -52,6 +52,7 @@ class JointsDataset(Dataset):
 
         self.image_size = np.array(cfg.MODEL.IMAGE_SIZE)
         self.heatmap_size = np.array(cfg.MODEL.HEATMAP_SIZE)
+        # 生成1d-heatmap的高斯分布的sigma
         self.sigma = cfg.MODEL.SIGMA
         self.use_different_joints_weight = cfg.LOSS.USE_DIFFERENT_JOINTS_WEIGHT
         self.joints_weight = 1
@@ -204,18 +205,21 @@ class JointsDataset(Dataset):
             'score': score
         }
         if self.coord_representation == 'simdr':
+            # soft-lable的simdr 
             joints_split = joints.copy()
             joints_split = np.around(joints_split * self.simdr_split_ratio)
             joints_split = joints_split.astype(np.int64) 
             target_weight,filtered_joints = self.filter_target_simdr(joints_split.copy(), joints_vis, self.image_size*self.simdr_split_ratio)
             return input, filtered_joints[:,0:2], target_weight, meta
         elif self.coord_representation == 'sa-simdr':
+            # 如果是高斯分布的 sa-simdr
             target_x, target_y, target_weight = self.generate_sa_simdr(joints, joints_vis)
             target_x = torch.from_numpy(target_x)
             target_y = torch.from_numpy(target_y)
             target_weight = torch.from_numpy(target_weight)
             return input, target_x, target_y, target_weight, meta            
         elif self.coord_representation == 'heatmap':
+            # 如果是heatmap 上面  generate_target 已经生成了 
             return input, target, target_weight, meta
 
     def generate_sa_simdr(self, joints, joints_vis):
@@ -227,6 +231,7 @@ class JointsDataset(Dataset):
         target_weight = np.ones((self.num_joints, 1), dtype=np.float32)
         target_weight[:, 0] = joints_vis[:, 0]
 
+        # [K, width*split_ratio]
         target_x = np.zeros((self.num_joints,
                             int(self.image_size[0]*self.simdr_split_ratio)),
                             dtype=np.float32)
@@ -250,8 +255,11 @@ class JointsDataset(Dataset):
 
             v = target_weight[joint_id]
             if v > 0.5:
+                # !!! 归一化的高斯分布 
+                # 只有 有效关键点, 才生成 成1d-heatmap 
                 target_x[joint_id] = (np.exp(- ((x - mu_x) ** 2) / (2 * self.sigma ** 2)))/(self.sigma*np.sqrt(np.pi*2))
                 target_y[joint_id] = (np.exp(- ((y - mu_y) ** 2) / (2 * self.sigma ** 2)))/(self.sigma*np.sqrt(np.pi*2))
+
         if self.use_different_joints_weight:
             target_weight = np.multiply(target_weight, self.joints_weight)
 

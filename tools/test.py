@@ -119,6 +119,13 @@ def main():
         mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
     )
 
+    # 训练的模型配置中, 也会记录用什么测试集 
+    # experiments\coco\hrnet\sa_simdr\w48_256x192_adam_lr1e-3_split2_sigma4.yaml
+    #   cfg.DATASET.DATASET  = 'coco'
+    #
+    #   eval（ lib\dataset\coco.py )(.....)
+    #   eval 是 Python 中的一个内置函数。它用于执行一个'字符串表达式'，并返回'表达式的值'-- 相当于作为 import 
+    # 
     valid_dataset = eval('dataset.'+cfg.DATASET.DATASET)(
         cfg, cfg.DATASET.ROOT, cfg.DATASET.TEST_SET, False,
         transforms.Compose([
@@ -143,6 +150,11 @@ def main():
             cfg, valid_loader, valid_dataset, model, criterion,
             final_output_dir, tb_log_dir)    
     elif cfg.MODEL.COORD_REPRESENTATION == 'sa-simdr':
+        # 会计算测试集上的loss  
+        # sa-simdr坐标表征应该都是 TYPE: 'KLDiscretLoss' USE_TARGET_WEIGHT: true 
+        # 
+        #       @ experiments\coco\resnet\sa_simdr\original\res50_384x288_d256x3_adam_lr1e-3_deconv3_split2_sigma6.yaml
+        #   
         validate_sa_simdr(
             cfg, valid_loader, valid_dataset, model, criterion,
             final_output_dir, tb_log_dir)             

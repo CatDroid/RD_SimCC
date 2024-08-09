@@ -289,6 +289,7 @@ class COCODataset(JointsDataset):
             self.image_thre, num_boxes))
         return kpt_db
 
+    # coco数据集的eval 评估方法 
     def evaluate(self, cfg, preds, output_dir, all_boxes, img_path,
                  *args, **kwargs):
         rank = cfg.RANK
@@ -344,11 +345,21 @@ class COCODataset(JointsDataset):
                 n_p['score'] = kpt_score * box_score
 
             if self.soft_nms:
+                # soft的 oks nms 方法????
                 keep = soft_oks_nms(
                     [img_kpts[i] for i in range(len(img_kpts))],
                     oks_thre
                 )
             else:
+                # 是用oks_nms的评估方法 
+                # 
+                # 重复检测： 即使使用"从上到下"的方法，仍可能出现"多个检测框"对应"同一个人"的情况。这可能是由于"目标检测"阶段产生了"重叠的边界框"。
+                # 关键点"质量"筛选： 不同的检测框可能会为"同一个人"生成"质量不同"的关键点预测。NMS可以帮助选择最佳的预测结果。
+                # 处理密集场景： 在人群密集的场景中，可能会出现"多个人体"检测框"彼此重叠"的情况。NMS可以帮助筛选出最合适的检测结果
+             
+                # OKS（Object Keypoint Similarity）based NMS比传统的基于IoU（Intersection over Union）的NMS更有优势，
+                # 因为它直接考虑了 "关键点的位置和可见性"，而不仅仅是"边界框的重叠程度"。
+
                 # default
                 keep = oks_nms(
                     [img_kpts[i] for i in range(len(img_kpts))],
@@ -366,6 +377,7 @@ class COCODataset(JointsDataset):
             info_str = self._do_python_keypoint_eval(
                 res_file, res_folder)
             name_value = OrderedDict(info_str)
+            # 平均精确率 ??
             return name_value, name_value['AP']
         else:
             return {'Null': 0}, 0

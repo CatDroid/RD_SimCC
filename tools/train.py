@@ -78,6 +78,8 @@ def parse_args():
 
 def main():
     args = parse_args()
+    # 用args去初始化cfg
+    # lib\config\default.py
     update_config(cfg, args)
 
     logger, final_output_dir, tb_log_dir = create_logger(
@@ -210,6 +212,7 @@ def main():
             cfg, valid_loader, valid_dataset, model, criterion,
             final_output_dir, tb_log_dir, writer_dict)   
         elif cfg.MODEL.COORD_REPRESENTATION == 'sa-simdr':
+            # 这里训练 sa-simdr表征方式 
             train_sa_simdr(cfg, train_loader, model, criterion, optimizer, epoch,
               final_output_dir, tb_log_dir, writer_dict)
             

@@ -92,6 +92,9 @@ MODEL:
       FUSE_METHOD: SUM
 LOSS:
   USE_TARGET_WEIGHT: true
+  # sa_simdr 用的都是 KLDiscretLoss
+  # simdr 用的是 NMTCritierion
+  # heatmap应该默认用的是 JointsMSELoss(配置文件没有写 就用lib\config\default.py 写的_C.LOSS.TYPE)
   TYPE: 'KLDiscretLoss'
 TRAIN:
   BATCH_SIZE_PER_GPU: 32
